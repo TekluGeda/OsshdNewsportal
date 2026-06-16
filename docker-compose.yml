@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  news-portal:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chronicle-news-portal
+    ports:
+      - "80:80"
+    restart: always
+    environment:
+      - NODE_ENV=production
