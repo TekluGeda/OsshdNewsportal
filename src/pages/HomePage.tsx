@@ -124,7 +124,25 @@ export const HomePage: React.FC = () => {
       {/* HERO SLIDER */}
       {!loading && featuredArticles.length > 0 && (
         <div className="container">
-          <HeroSlider articles={featuredArticles} />
+          <>
+  <h2 style={{ color: "red" }}>
+    Featured Articles: {featuredArticles.length}
+  </h2>
+
+  <pre
+    style={{
+      background: "#222",
+      color: "lime",
+      padding: 20,
+      overflow: "auto",
+      maxHeight: 300
+    }}
+  >
+    {JSON.stringify(featuredArticles, null, 2)}
+  </pre>
+
+  <HeroSlider articles={featuredArticles} />
+</>
         </div>
       )}
 
