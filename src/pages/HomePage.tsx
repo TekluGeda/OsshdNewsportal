@@ -25,6 +25,13 @@ export const HomePage: React.FC = () => {
   const [paginatedArticles, setPaginatedArticles] = useState<News[]>([]);
   const [authorsMap, setAuthorsMap] = useState<Record<string, string>>({});
 
+useEffect(() => {
+  fetch("http://116.202.101.84:5000/api/articles?featured=true")
+    .then(r => r.json())
+    .then(d => console.log("RAW FETCH TEST:", d))
+    .catch(e => console.log("FETCH ERROR:", e));
+}, []);
+  
   const [filters, setFilters] = useState({
     category: initialCategory,
     search: "",
@@ -43,6 +50,8 @@ export const HomePage: React.FC = () => {
     setCurrentPage(1);
   }, [location.search]);
 
+
+  
   // =========================
   // DATA LOADER (SAFE VERSION)
   // =========================
