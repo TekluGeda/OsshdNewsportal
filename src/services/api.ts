@@ -1,6 +1,4 @@
-// src/services/api.ts
-
-import type { News, Category, Author } from '../types';
+import type { News } from "../types";
 
 const API_BASE = "http://116.202.101.84:5000/api";
 
@@ -14,8 +12,9 @@ async function handleResponse(res: Response) {
 
 export const api = {
   // ========================
-  // ARTICLES
+  // ARTICLES (ONLY REAL WORKING ENDPOINT)
   // ========================
+
   async getArticles(filters?: {
     category?: string;
     search?: string;
@@ -31,8 +30,6 @@ export const api = {
     if (filters?.status) params.append("status", filters.status);
     if (filters?.featured !== undefined)
       params.append("featured", String(filters.featured));
-    if (filters?.sort) params.append("sort", filters.sort);
-    if (filters?.date) params.append("date", filters.date);
 
     const res = await fetch(
       `${API_BASE}/articles?${params.toString()}`
@@ -42,106 +39,27 @@ export const api = {
   },
 
   async getArticleById(id: string): Promise<News | null> {
-    const res = await fetch(`${API_BASE}/articles/${id}`);
-
+    // Not implemented in backend yet → fallback
+    const res = await fetch(`${API_BASE}/articles?id=${id}`);
     if (!res.ok) return null;
 
-    return res.json();
-  },
-
-  async createArticle(data: Partial<News>): Promise<News> {
-    const res = await fetch(`${API_BASE}/articles`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
-
-    return handleResponse(res);
-  },
-
-  async updateArticle(id: string, data: Partial<News>): Promise<News> {
-    const res = await fetch(`${API_BASE}/articles/${id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
-
-    return handleResponse(res);
-  },
-
-  async deleteArticle(id: string): Promise<{ success: boolean }> {
-    const res = await fetch(`${API_BASE}/articles/${id}`, {
-      method: "DELETE",
-    });
-
-    return handleResponse(res);
+    const data = await res.json();
+    return data?.[0] || null;
   },
 
   // ========================
-  // AUTHORS
+  // PLACEHOLDERS (NOT ACTIVE YET)
   // ========================
-  async getAuthors(): Promise<Author[]> {
-    const res = await fetch(`${API_BASE}/authors`);
-    return handleResponse(res);
+
+  async getAuthors() {
+    return [];
   },
 
-  async createAuthor(data: Partial<Author>): Promise<Author> {
-    const res = await fetch(`${API_BASE}/authors`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
-
-    return handleResponse(res);
+  async getCategories() {
+    return [];
   },
 
-  async deleteAuthor(id: string): Promise<{ success: boolean }> {
-    const res = await fetch(`${API_BASE}/authors/${id}`, {
-      method: "DELETE",
-    });
-
-    return handleResponse(res);
-  },
-
-  // ========================
-  // CATEGORIES
-  // ========================
-  async getCategories(): Promise<Category[]> {
-    const res = await fetch(`${API_BASE}/categories`);
-    return handleResponse(res);
-  },
-
-  async createCategory(data: Partial<Category>): Promise<Category> {
-    const res = await fetch(`${API_BASE}/categories`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(data),
-    });
-
-    return handleResponse(res);
-  },
-
-  async deleteCategory(id: string): Promise<{ success: boolean }> {
-    const res = await fetch(`${API_BASE}/categories/${id}`, {
-      method: "DELETE",
-    });
-
-    return handleResponse(res);
-  },
-
-  // ========================
-  // STATS (optional dashboard)
-  // ========================
-  async getStats(): Promise<any> {
-    const res = await fetch(`${API_BASE}/stats`);
-    return handleResponse(res);
-  },
+  async getStats() {
+    return null;
+  }
 };
