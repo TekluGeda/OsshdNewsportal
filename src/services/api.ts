@@ -1,234 +1,147 @@
-import type { News, Category, Author } from '../types';
-import {
-  getStoredArticles,
-  saveStoredArticles,
-  getStoredCategories,
-  saveStoredCategories,
-  getStoredAuthors,
-  saveStoredAuthors
-} from './db';
+// src/services/api.ts
 
-const delay = (ms = 150) => new Promise(resolve => setTimeout(resolve, ms));
+import type { News, Category, Author } from '../types';
+
+const API_BASE = "http://116.202.101.84:5000/api";
+
+async function handleResponse(res: Response) {
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(errorText || "API request failed");
+  }
+  return res.json();
+}
 
 export const api = {
-  // Articles CRUD
+  // ========================
+  // ARTICLES
+  // ========================
   async getArticles(filters?: {
     category?: string;
     search?: string;
-    status?: 'draft' | 'published' | 'all';
+    status?: string;
     featured?: boolean;
-    sort?: 'newest' | 'oldest';
-    date?: string; // YYYY-MM-DD
+    sort?: "newest" | "oldest";
+    date?: string;
   }): Promise<News[]> {
-    await delay();
-    let articles = getStoredArticles();
+    const params = new URLSearchParams();
 
-    if (filters) {
-      const { category, search, status, featured, sort, date } = filters;
+    if (filters?.category) params.append("category", filters.category);
+    if (filters?.search) params.append("search", filters.search);
+    if (filters?.status) params.append("status", filters.status);
+    if (filters?.featured !== undefined)
+      params.append("featured", String(filters.featured));
+    if (filters?.sort) params.append("sort", filters.sort);
+    if (filters?.date) params.append("date", filters.date);
 
-      // Filter by status (default is published for regular users)
-      if (status && status !== 'all') {
-        articles = articles.filter(a => a.status === status);
-      } else if (!status) {
-        articles = articles.filter(a => a.status === 'published');
-      }
+    const res = await fetch(
+      `${API_BASE}/articles?${params.toString()}`
+    );
 
-      // Filter by featured
-      if (featured !== undefined) {
-        articles = articles.filter(a => a.featured === featured);
-      }
-
-      // Filter by category
-      if (category && category !== '') {
-        articles = articles.filter(
-          a => a.category.toLowerCase() === category.toLowerCase()
-        );
-      }
-
-      // Filter by search query (title or content or summary)
-      if (search && search.trim() !== '') {
-        const query = search.toLowerCase();
-        articles = articles.filter(
-          a =>
-            a.title.toLowerCase().includes(query) ||
-            a.summary.toLowerCase().includes(query) ||
-            a.content.toLowerCase().includes(query)
-        );
-      }
-
-      // Filter by exact publish date
-      if (date && date !== '') {
-        articles = articles.filter(a => a.publishDate === date);
-      }
-
-      // Sort
-      if (sort === 'oldest') {
-        articles.sort(
-          (a, b) => new Date(a.publishDate).getTime() - new Date(b.publishDate).getTime()
-        );
-      } else {
-        // default: newest
-        articles.sort(
-          (a, b) => new Date(b.publishDate).getTime() - new Date(a.publishDate).getTime()
-        );
-      }
-    } else {
-      // Default filter: only published, sorted by newest
-      articles = articles
-        .filter(a => a.status === 'published')
-        .sort((a, b) => new Date(b.publishDate).getTime() - new Date(a.publishDate).getTime());
-    }
-
-    return articles;
+    return handleResponse(res);
   },
 
   async getArticleById(id: string): Promise<News | null> {
-    await delay();
-    const articles = getStoredArticles();
-    const article = articles.find(a => a.id === id);
-    if (article) {
-      // Increment views count mock
-      article.views = (article.views || 0) + 1;
-      saveStoredArticles(articles);
-      return article;
-    }
-    return null;
+    const res = await fetch(`${API_BASE}/articles/${id}`);
+
+    if (!res.ok) return null;
+
+    return res.json();
   },
 
-  async createArticle(articleData: Omit<News, 'id' | 'createdDate' | 'updatedDate'>): Promise<News> {
-    await delay();
-    const articles = getStoredArticles();
-    const newArticle: News = {
-      ...articleData,
-      id: `art-${Date.now()}`,
-      createdDate: new Date().toISOString(),
-      updatedDate: new Date().toISOString(),
-      views: 0
-    };
-    articles.push(newArticle);
-    saveStoredArticles(articles);
-    return newArticle;
-  },
-
-  async updateArticle(id: string, articleData: Partial<News>): Promise<News | null> {
-    await delay();
-    const articles = getStoredArticles();
-    const index = articles.findIndex(a => a.id === id);
-    if (index === -1) return null;
-
-    const updatedArticle: News = {
-      ...articles[index],
-      ...articleData,
-      updatedDate: new Date().toISOString()
-    };
-    articles[index] = updatedArticle;
-    saveStoredArticles(articles);
-    return updatedArticle;
-  },
-
-  async deleteArticle(id: string): Promise<boolean> {
-    await delay();
-    const articles = getStoredArticles();
-    const filtered = articles.filter(a => a.id !== id);
-    if (filtered.length === articles.length) return false;
-    saveStoredArticles(filtered);
-    return true;
-  },
-
-  // Categories CRUD
-  async getCategories(): Promise<Category[]> {
-    await delay();
-    return getStoredCategories();
-  },
-
-  async createCategory(categoryData: Omit<Category, 'id'>): Promise<Category> {
-    await delay();
-    const categories = getStoredCategories();
-    const newCategory: Category = {
-      ...categoryData,
-      id: `cat-${Date.now()}`
-    };
-    categories.push(newCategory);
-    saveStoredCategories(categories);
-    return newCategory;
-  },
-
-  async deleteCategory(id: string): Promise<boolean> {
-    await delay();
-    const categories = getStoredCategories();
-    const filtered = categories.filter(c => c.id !== id);
-    if (filtered.length === categories.length) return false;
-    saveStoredCategories(filtered);
-    return true;
-  },
-
-  // Authors CRUD
-  async getAuthors(): Promise<Author[]> {
-    await delay();
-    return getStoredAuthors();
-  },
-
-  async createAuthor(authorData: Omit<Author, 'id'>): Promise<Author> {
-    await delay();
-    const authors = getStoredAuthors();
-    const newAuthor: Author = {
-      ...authorData,
-      id: `auth-${Date.now()}`
-    };
-    authors.push(newAuthor);
-    saveStoredAuthors(authors);
-    return newAuthor;
-  },
-
-  async deleteAuthor(id: string): Promise<boolean> {
-    await delay();
-    const authors = getStoredAuthors();
-    const filtered = authors.filter(a => a.id !== id);
-    if (filtered.length === authors.length) return false;
-    saveStoredAuthors(filtered);
-    return true;
-  },
-
-  // News statistics for Admin Dashboard
-  async getStats(): Promise<{
-    totalArticles: number;
-    publishedArticles: number;
-    draftArticles: number;
-    featuredArticles: number;
-    totalViews: number;
-    categoriesCount: number;
-    authorsCount: number;
-    categoryDistribution: { name: string; count: number }[];
-  }> {
-    await delay();
-    const articles = getStoredArticles();
-    const categories = getStoredCategories();
-    const authors = getStoredAuthors();
-
-    const published = articles.filter(a => a.status === 'published');
-    const drafts = articles.filter(a => a.status === 'draft');
-    const featured = articles.filter(a => a.featured);
-    const totalViews = articles.reduce((acc, curr) => acc + (curr.views || 0), 0);
-
-    const distMap: Record<string, number> = {};
-    articles.forEach(a => {
-      distMap[a.category] = (distMap[a.category] || 0) + 1;
+  async createArticle(data: Partial<News>): Promise<News> {
+    const res = await fetch(`${API_BASE}/articles`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
     });
 
-    const categoryDistribution = categories.map(cat => ({
-      name: cat.name,
-      count: distMap[cat.name] || 0
-    }));
+    return handleResponse(res);
+  },
 
-    return {
-      totalArticles: articles.length,
-      publishedArticles: published.length,
-      draftArticles: drafts.length,
-      featuredArticles: featured.length,
-      totalViews,
-      categoriesCount: categories.length,
-      authorsCount: authors.length,
-      categoryDistribution
-    };
-  }
+  async updateArticle(id: string, data: Partial<News>): Promise<News> {
+    const res = await fetch(`${API_BASE}/articles/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+
+    return handleResponse(res);
+  },
+
+  async deleteArticle(id: string): Promise<{ success: boolean }> {
+    const res = await fetch(`${API_BASE}/articles/${id}`, {
+      method: "DELETE",
+    });
+
+    return handleResponse(res);
+  },
+
+  // ========================
+  // AUTHORS
+  // ========================
+  async getAuthors(): Promise<Author[]> {
+    const res = await fetch(`${API_BASE}/authors`);
+    return handleResponse(res);
+  },
+
+  async createAuthor(data: Partial<Author>): Promise<Author> {
+    const res = await fetch(`${API_BASE}/authors`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+
+    return handleResponse(res);
+  },
+
+  async deleteAuthor(id: string): Promise<{ success: boolean }> {
+    const res = await fetch(`${API_BASE}/authors/${id}`, {
+      method: "DELETE",
+    });
+
+    return handleResponse(res);
+  },
+
+  // ========================
+  // CATEGORIES
+  // ========================
+  async getCategories(): Promise<Category[]> {
+    const res = await fetch(`${API_BASE}/categories`);
+    return handleResponse(res);
+  },
+
+  async createCategory(data: Partial<Category>): Promise<Category> {
+    const res = await fetch(`${API_BASE}/categories`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+
+    return handleResponse(res);
+  },
+
+  async deleteCategory(id: string): Promise<{ success: boolean }> {
+    const res = await fetch(`${API_BASE}/categories/${id}`, {
+      method: "DELETE",
+    });
+
+    return handleResponse(res);
+  },
+
+  // ========================
+  // STATS (optional dashboard)
+  // ========================
+  async getStats(): Promise<any> {
+    const res = await fetch(`${API_BASE}/stats`);
+    return handleResponse(res);
+  },
 };
