@@ -19,7 +19,6 @@ export const HomePage: React.FC = () => {
   const queryParams = new URLSearchParams(location.search);
   const initialCategory = queryParams.get("category") || "";
 
-  // STATE
   const [featuredArticles, setFeaturedArticles] = useState<News[]>([]);
   const [latestArticles, setLatestArticles] = useState<News[]>([]);
   const [filteredArticles, setFilteredArticles] = useState<News[]>([]);
@@ -37,7 +36,7 @@ export const HomePage: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
 
-  // sync URL category
+  // Sync URL category
   useEffect(() => {
     const cat = queryParams.get("category") || "";
     setFilters((prev) => ({ ...prev, category: cat }));
@@ -45,30 +44,42 @@ export const HomePage: React.FC = () => {
   }, [location.search]);
 
   // =========================
-  // MAIN DATA LOADER (OPTIMIZED)
+  // DATA LOADER (SAFE VERSION)
   // =========================
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
 
       try {
-        const [featured, latest, grid, authors] = await Promise.all([
-          api.getArticles({ featured: true, status: "published" }),
-          api.getArticles({ status: "published", sort: "newest" }),
-          api.getArticles({
-            category: filters.category,
-            search: filters.search,
-            sort: filters.sort,
-            date: filters.date,
-            status: "published"
-          }),
-          api.getAuthors()
-        ]);
+        // Fetch everything separately (safe + debug friendly)
+        const featured = await api.getArticles({
+          featured: true,
+          status: "published"
+        });
+
+        const latest = await api.getArticles({
+          status: "published",
+          sort: "newest"
+        });
+
+        const grid = await api.getArticles({
+          category: filters.category,
+          search: filters.search,
+          sort: filters.sort,
+          date: filters.date,
+          status: "published"
+        });
+
+        const authors = await api.getAuthors();
+
+        console.log("FEATURED:", featured);
+        console.log("LATEST:", latest);
+        console.log("GRID:", grid);
 
         setFeaturedArticles(featured);
         setLatestArticles(latest.slice(0, 3));
-
         setFilteredArticles(grid);
+
         setTotalPages(Math.ceil(grid.length / ITEMS_PER_PAGE));
         setCurrentPage(1);
 
@@ -87,7 +98,7 @@ export const HomePage: React.FC = () => {
     loadData();
   }, [filters]);
 
-  // pagination
+  // Pagination
   useEffect(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     setPaginatedArticles(
@@ -95,7 +106,7 @@ export const HomePage: React.FC = () => {
     );
   }, [filteredArticles, currentPage]);
 
-  // filter handler
+  // Filter handler
   const handleFilterChange = (newFilters: typeof filters) => {
     setFilters(newFilters);
 
@@ -106,7 +117,7 @@ export const HomePage: React.FC = () => {
     }
   };
 
-  // page change
+  // Page change
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     document.getElementById("grid-heading")?.scrollIntoView({
@@ -121,45 +132,29 @@ export const HomePage: React.FC = () => {
         description="Stay informed with our corporate news portal."
       />
 
-      {/* HERO SLIDER */}
-      {!loading && featuredArticles.length > 0 && (
-        <div className="container">
+      {/* HERO SLIDER — ALWAYS SAFE */}
+      <div className="container">
+        {featuredArticles.length > 0 ? (
           <>
-  <h2 style={{ color: "red" }}>
-    Featured Articles: {featuredArticles.length}
-  </h2>
-
-  <pre
-    style={{
-      background: "#222",
-      color: "lime",
-      padding: 20,
-      overflow: "auto",
-      maxHeight: 300
-    }}
-  >
-    {JSON.stringify(featuredArticles, null, 2)}
-  </pre>
-
-  <HeroSlider articles={featuredArticles} />
-</>
-        </div>
-      )}
+            <HeroSlider articles={featuredArticles} />
+          </>
+        ) : (
+          !loading && (
+            <p style={{ textAlign: "center" }}>
+              No featured articles available
+            </p>
+          )
+        )}
+      </div>
 
       {/* LATEST NEWS */}
-      <section
-        id="latest"
-        style={{
-          padding: "48px 0",
-          borderBottom: "1px solid var(--border)"
-        }}
-      >
+      <section id="latest" style={{ padding: "48px 0" }}>
         <div className="container">
           <h2 className="news-section-title">Latest Headlines</h2>
 
           {loading ? (
             <p style={{ textAlign: "center" }}>Loading...</p>
-          ) : latestArticles.length > 0 ? (
+          ) : (
             <div className="related-grid">
               {latestArticles.map((article) => (
                 <NewsCard
@@ -169,8 +164,6 @@ export const HomePage: React.FC = () => {
                 />
               ))}
             </div>
-          ) : (
-            <p style={{ textAlign: "center" }}>No articles yet</p>
           )}
         </div>
       </section>
