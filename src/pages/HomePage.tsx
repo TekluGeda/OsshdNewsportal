@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import type { News } from '../types';
-import { api } from '../services/api';
-import { Layout } from '../components/Layout';
-import { SEO } from '../components/SEO';
-import { HeroSlider } from '../components/HeroSlider';
-import { FilterBar } from '../components/FilterBar';
-import { NewsGrid } from '../components/NewsGrid';
-import { Pagination } from '../components/Pagination';
-import { NewsCard } from '../components/NewsCard';
+import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import type { News } from "../types";
+import { api } from "../services/api";
+import { Layout } from "../components/Layout";
+import { SEO } from "../components/SEO";
+import { HeroSlider } from "../components/HeroSlider";
+import { FilterBar } from "../components/FilterBar";
+import { NewsGrid } from "../components/NewsGrid";
+import { Pagination } from "../components/Pagination";
+import { NewsCard } from "../components/NewsCard";
 
 const ITEMS_PER_PAGE = 6;
 
@@ -16,139 +16,134 @@ export const HomePage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Parse URL search parameters for initial categories
   const queryParams = new URLSearchParams(location.search);
-  const initialCategory = queryParams.get('category') || '';
+  const initialCategory = queryParams.get("category") || "";
 
-  // State Management
+  // STATE
   const [featuredArticles, setFeaturedArticles] = useState<News[]>([]);
   const [latestArticles, setLatestArticles] = useState<News[]>([]);
   const [filteredArticles, setFilteredArticles] = useState<News[]>([]);
   const [paginatedArticles, setPaginatedArticles] = useState<News[]>([]);
   const [authorsMap, setAuthorsMap] = useState<Record<string, string>>({});
-  
+
   const [filters, setFilters] = useState({
     category: initialCategory,
-    search: '',
-    sort: 'newest' as 'newest' | 'oldest',
-    date: ''
+    search: "",
+    sort: "newest" as "newest" | "oldest",
+    date: ""
   });
 
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [totalPages, setTotalPages] = useState<number>(1);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
 
-  // Sync category state with URL query parameter changes
+  // sync URL category
   useEffect(() => {
-    const cat = queryParams.get('category') || '';
-    setFilters(prev => ({ ...prev, category: cat }));
-    setCurrentPage(1); // Reset page on category change
+    const cat = queryParams.get("category") || "";
+    setFilters((prev) => ({ ...prev, category: cat }));
+    setCurrentPage(1);
   }, [location.search]);
 
-  // Load authors mapping once
+  // =========================
+  // MAIN DATA LOADER (OPTIMIZED)
+  // =========================
   useEffect(() => {
-    const loadAuthors = async () => {
-      try {
-        const authors = await api.getAuthors();
-        const mapping: Record<string, string> = {};
-        authors.forEach(auth => {
-          mapping[auth.id] = auth.fullName;
-        });
-        setAuthorsMap(mapping);
-      } catch (err) {
-        console.error('Error fetching authors:', err);
-      }
-    };
-    loadAuthors();
-  }, []);
-
-  // Fetch articles based on filter criteria
-  useEffect(() => {
-    const loadArticles = async () => {
+    const loadData = async () => {
       setLoading(true);
-      try {
-        // 1. Fetch featured articles for slider (always published, ignore filter parameters)
-        const featured = await api.getArticles({ featured: true, status: 'published' });
-        setFeaturedArticles(featured);
 
-        // 2. Fetch latest articles for "Latest News Section" (recent 3 published items)
-        const latest = await api.getArticles({ status: 'published', sort: 'newest' });
+      try {
+        const [featured, latest, grid, authors] = await Promise.all([
+          api.getArticles({ featured: true, status: "published" }),
+          api.getArticles({ status: "published", sort: "newest" }),
+          api.getArticles({
+            category: filters.category,
+            search: filters.search,
+            sort: filters.sort,
+            date: filters.date,
+            status: "published"
+          }),
+          api.getAuthors()
+        ]);
+
+        setFeaturedArticles(featured);
         setLatestArticles(latest.slice(0, 3));
 
-        // 3. Fetch filtered articles for the news grid
-        const gridFiltered = await api.getArticles({
-          category: filters.category,
-          search: filters.search,
-          sort: filters.sort,
-          date: filters.date,
-          status: 'published'
+        setFilteredArticles(grid);
+        setTotalPages(Math.ceil(grid.length / ITEMS_PER_PAGE));
+        setCurrentPage(1);
+
+        const map: Record<string, string> = {};
+        authors.forEach((a) => {
+          map[a.id] = a.fullName;
         });
-        
-        setFilteredArticles(gridFiltered);
-        setTotalPages(Math.ceil(gridFiltered.length / ITEMS_PER_PAGE));
-        setCurrentPage(1); // Reset page index when filter updates
+        setAuthorsMap(map);
       } catch (err) {
-        console.error('Error fetching articles:', err);
+        console.error("Homepage load error:", err);
       } finally {
         setLoading(false);
       }
     };
-    
-    loadArticles();
+
+    loadData();
   }, [filters]);
 
-  // Handle pagination slicing when filtered list or current page changes
+  // pagination
   useEffect(() => {
-    const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
-    const sliced = filteredArticles.slice(startIdx, startIdx + ITEMS_PER_PAGE);
-    setPaginatedArticles(sliced);
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    setPaginatedArticles(
+      filteredArticles.slice(start, start + ITEMS_PER_PAGE)
+    );
   }, [filteredArticles, currentPage]);
 
+  // filter handler
   const handleFilterChange = (newFilters: typeof filters) => {
     setFilters(newFilters);
-    
-    // Sync category URL param
+
     if (newFilters.category) {
       navigate(`/?category=${encodeURIComponent(newFilters.category)}`);
     } else {
-      navigate('/');
+      navigate("/");
     }
   };
 
+  // page change
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    // Smooth scroll down to grid listing when changing pages
-    const gridEl = document.getElementById('grid-heading');
-    if (gridEl) {
-      gridEl.scrollIntoView({ behavior: 'smooth' });
-    }
+    document.getElementById("grid-heading")?.scrollIntoView({
+      behavior: "smooth"
+    });
   };
 
   return (
     <Layout>
       <SEO
         title="Home"
-        description="Stay informed with our comprehensive corporate news portal. Read announcements, Project summaries and  events lists."
+        description="Stay informed with our corporate news portal."
       />
 
-      {/* Top: Featured News Slider */}
+      {/* HERO SLIDER */}
       {!loading && featuredArticles.length > 0 && (
         <div className="container">
           <HeroSlider articles={featuredArticles} />
         </div>
       )}
 
-      {/* Middle: Latest News Section */}
-      <section className="related-news-section animate-fade-in" id="latest" style={{ padding: '48px 0', borderBottom: '1px solid var(--border)' }}>
+      {/* LATEST NEWS */}
+      <section
+        id="latest"
+        style={{
+          padding: "48px 0",
+          borderBottom: "1px solid var(--border)"
+        }}
+      >
         <div className="container">
-          <h2 className="news-section-title" style={{ justifyContent: 'center', marginBottom: '32px' }}>
-            Latest Headlines
-          </h2>
+          <h2 className="news-section-title">Latest Headlines</h2>
+
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-muted)' }}>Loading headlines...</div>
+            <p style={{ textAlign: "center" }}>Loading...</p>
           ) : latestArticles.length > 0 ? (
             <div className="related-grid">
-              {latestArticles.map(article => (
+              {latestArticles.map((article) => (
                 <NewsCard
                   key={article.id}
                   article={article}
@@ -157,18 +152,18 @@ export const HomePage: React.FC = () => {
               ))}
             </div>
           ) : (
-            <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No articles published yet.</div>
+            <p style={{ textAlign: "center" }}>No articles yet</p>
           )}
         </div>
       </section>
 
-      {/* Below: News Grid with Search & Filters */}
-      <section style={{ padding: '64px 0 24px 0' }} id="grid">
+      {/* GRID */}
+      <section id="grid" style={{ padding: "64px 0 24px" }}>
         <div className="container">
-          <div className="news-section-title" id="grid-heading">
+          <div id="grid-heading" className="news-section-title">
             <span>Explore All News</span>
-            <span style={{ fontSize: '14px', fontWeight: '500', color: 'var(--text-muted)' }}>
-              Showing {filteredArticles.length} {filteredArticles.length === 1 ? 'article' : 'articles'}
+            <span style={{ fontSize: "14px" }}>
+              {filteredArticles.length} articles
             </span>
           </div>
 
@@ -181,12 +176,14 @@ export const HomePage: React.FC = () => {
           />
 
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '64px 0', color: 'var(--text-muted)' }}>Loading news feed...</div>
+            <p style={{ textAlign: "center" }}>Loading...</p>
           ) : (
             <>
-              <NewsGrid articles={paginatedArticles} authorsMap={authorsMap} />
-              
-              {/* Bottom: Pagination */}
+              <NewsGrid
+                articles={paginatedArticles}
+                authorsMap={authorsMap}
+              />
+
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
