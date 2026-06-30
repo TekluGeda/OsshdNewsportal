@@ -1,7 +1,7 @@
 import type { News, Category, Author } from "../types";
 
-const API_BASE = "http://116.202.101.84:5000/api";
-
+//const API_BASE = "http://116.202.101.84:5000/api";
+const API_BASE = import.meta.env.VITE_API_BASE;
 async function handleResponse(res: Response) {
   if (!res.ok) {
     const text = await res.text();
